@@ -1,4 +1,4 @@
-# Three ways to check the success / failure of you neural network
+# Four ways to check the success / failure of you neural network
 
 import tensorflow as tf
 import numpy as np
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 nodes = 60
 LR = 0.0001  # learning rate
 
-# train network (see neural_net_architecture for more info)
+# train network (see neural_net_architecture.py for more info)
 history = model.fit(x_train_shp, hotlabels_train,
                     validation_data=(x_val_shp, hotlabels_val),
                     batch_size=batch_size,
@@ -62,7 +62,7 @@ plt.show()
 # define bins
 bin_num = 50
 
-# Get model confidences (see neural_net_architecture for more info)
+# Get model confidences (see neural_net_architecture.py for more info)
 Conf_all = model.predict(x_val_shp)  # Confidences for all classes
 WConf = np.argmax(Conf_all, axis=1)  # index of winning confidence
 Conf = np.amax(Conf_all, 1)  # array of just the winning confidences
@@ -90,7 +90,7 @@ Conf = np.amax(Conf_all, 1)  # array of just the winning confidences
 
 # put necessary info together
 hit_miss1 = np.stack((Conf, y_val, WConf), axis=-1)  # y_val = class values - defined before running network
-hit_miss = hit_miss1[hit_miss1[:,1].argsort()[::-1]]  # sorted from most to least confident
+hit_miss = hit_miss1[hit_miss1[:,0].argsort()[::-1]]  # sorted from most to least confident
 
 # set empty array
 hmap = np.zeros((num_cls, num_cls))
@@ -119,4 +119,48 @@ for (m, n), label in np.ndenumerate(trout):
     plt.text(n, m, label, fontsize=16, ha='center', va='center', color='black')
 cb = plt.colorbar()
 cb.set_label(label='Frequency', size=14)
+plt.show()
+
+##################################################################################################################################
+
+# Accuracy vs Confidence
+### As your network becomes more confident, you should expect it to become more accurate
+### One of the most important metrics
+
+# set your range of confidences (going below 20% can get noisy if there's a lack of samples)
+conf_levels = np.arange(.15, 1.05, .05)  # 15% to 100%
+
+# Get model confidences (see neural_net_architecture.py for more info)
+Conf_all = model.predict(x_val_shp)  # Confidences for all classes
+WConf = np.argmax(Conf_all, axis=1)  # index of winning confidence
+Conf = np.amax(Conf_all, 1)  # array of just the winning confidences
+
+# Make array to see if prediction was correct (1) or not (0)
+CoN = []
+for k in range(len(WConf)):
+    if WConf[k] == y_val[k]:
+        CoN += [1]
+    else:
+        CoN += [0]
+CoN = np.array(CoN)
+
+# put necessary info together
+hit_miss1 = np.stack((Conf, y_val, WConf, CoN), axis=-1)  # y_val = class values - defined before running network
+hit_miss = hit_miss1[hit_miss1[:,0].argsort()[::-1]]  # sorted from most to least confident
+
+# Calculate the accuracy at each confidence level
+conf_acc_lst = []
+for cl in conf_levels:
+  
+  cl_range = int(len(hit_miss1[:,3])*cl)  # calculate # samples in top x%
+  cl_topP = hit_miss1[:,3][:cl_range]  # get the top x% samples (whether they were right or not)
+  cl_out += [(np.sum(cl_topP) / len(cl_topP))*100]  # get accuracy
+
+# plot accuracy vs confidence
+plt.title('Validation Performance', fontsize=22)
+plt.xlabel('% of Most Confident Samples', fontsize=18)
+plt.ylabel('Accuracy (%)', fontsize=18)
+plt.plot(conf_levels*100, cl_out, color='white', linewidth=5)
+plt.axhline(y = 33.333, color='gray', linestyle = '--', linewidth=3)
+plt.gca().invert_xaxis()
 plt.show()
